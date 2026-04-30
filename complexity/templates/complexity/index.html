@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Анализ сложности генома</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f2f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #1e3c72;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input[type="file"], select, input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        button {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+        }
+        button:hover { opacity: 0.9; }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #dc3545;
+        }
+        .stats {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        img {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background: #f5f5f5;
+        }
+        .highlight {
+            background: #ffcccc;
+        }
+        hr { margin: 30px 0; }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-low { background: #dc3545; color: white; }
+        .badge-good { background: #28a745; color: white; }
+        .badge-min { background: #ffc107; color: #333; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .interpretation {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #1e3c72;
+        }
+        .scrollable-table {
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .scrollable-table table {
+            margin: 0;
+        }
+        .scrollable-table th {
+            position: sticky;
+            top: 0;
+            background: #f5f5f5;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧬 Анализ лингвистической сложности генома</h1>
+        <p>Универсальный инструмент для анализа сложности генетических последовательностей</p>
+        
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        <!-- ФОРМА -->
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label>📁 FASTA файл (*.fasta, *.fa, *.txt):</label>
+                <input type="file" name="fasta_file" accept=".fasta,.fa,.txt" required>
+            </div>
+            
+            <div class="form-group">
+                <label>🔬 Метод анализа:</label>
+                <select name="method">
+                    <option value="linguistic">Лингвистическая сложность</option>
+                    <option value="shannon">Энтропия Шеннона</option>
+                    <option value="shannon2">Энтропия Шеннона (2-й порядок)</option>
+                    <option value="monomer">Мера мономеров</option>
+                    <option value="gc">GC-содержание</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>📏 Длина окна (нт):</label>
+                <input type="number" name="window_size" value="50" min="10" max="1000">
+                <small>Рекомендуется: 50</small>
+            </div>
+            
+            <div class="form-group">
+                <label>🚶 Шаг скольжения (нт):</label>
+                <input type="number" name="step" value="100" min="1" max="500">
+                <small>Рекомендуется: 100</small>
+            </div>
+            
+            <div class="form-group">
+                <label>📏 Минимальная длина повтора для отображения (нт):</label>
+                <input type="number" name="min_repeat_len" value="4" min="3" max="20">
+                <small>Повторы короче этого значения не будут отображаться в таблице</small>
+            </div>
+            
+            <div class="form-group" id="alphabet_group" style="display: none;">
+                <label>🔤 Размер алфавита:</label>
+                <input type="number" name="alphabet_size" value="4" min="2" max="4">
+            </div>
+            
+            <div class="form-group">
+                <label>📄 BED файл с аннотацией (опционально):</label>
+                <input type="file" name="bed_file" accept=".bed,.txt">
+                <small>Позволяет отобразить гены на графике</small>
+            </div>
+            
+            <button type="submit">▶ ЗАПУСТИТЬ АНАЛИЗ</button>
+        </form>
+        
+        <!-- РЕЗУЛЬТАТЫ -->
+        {% if show_result %}
+        <hr>
+        <h2>📈 Результаты анализа: {{ method_name }}</h2>
+        
+        <div class="stats">
+            <div><strong>Название:</strong> {{ header|truncatechars:50 }}</div>
+            <div><strong>Длина:</strong> {{ sequence_length }} нт</div>
+            <div><strong>Окно/Шаг:</strong> {{ window_size }} / {{ step }}</div>
+            <div><strong>Среднее:</strong> {{ avg_value }}</div>
+            <div><strong>Минимум:</strong> {{ min_value }}</div>
+            <div><strong>Максимум:</strong> {{ max_value }}</div>
+            <div><strong>Участков &lt; {{ threshold }}:</strong> {{ low_regions_count }}</div>
+            <div><strong>Локальных минимумов:</strong> {{ local_minima_count }}</div>
+            <div><strong>Повторов (≥ {{ min_repeat_len }} нт):</strong> {{ short_repeats|length }}</div>
+        </div>
+        
+        <img src="data:image/png;base64,{{ image_base64 }}" alt="График сложности">
+        
+        <!-- БИОЛОГИЧЕСКАЯ ИНТЕРПРЕТАЦИЯ -->
+        {% if biological_interpretation %}
+        <div class="interpretation">
+            {{ biological_interpretation|safe }}
+        </div>
+        {% endif %}
+        
+        <!-- ГЛОБАЛЬНЫЙ МИНИМУМ -->
+        <h3>⭐ Глобальный минимум сложности</h3>
+        <div class="stats" style="background: #fff3cd;">
+            <div><strong>Позиция:</strong> {{ global_min_pos }} нт</div>
+            <div><strong>Значение:</strong> {{ global_min_val }}</div>
+            {% if global_min_gene %}
+            <div><strong>В гене:</strong> {{ global_min_gene.name }} ({{ global_min_gene.start }} - {{ global_min_gene.end }} нт)</div>
+            <div><strong>Цепь:</strong> {{ global_min_gene.strand }}</div>
+            {% endif %}
+        </div>
+        
+        <!-- ЛОКАЛЬНЫЕ МИНИМУМЫ -->
+        {% if enhanced_minima %}
+        <h3>🔍 Локальные минимумы сложности</h3>
+        <div class="scrollable-table">
+            <table>
+                <thead>
+                    <tr><th>Позиция</th><th>Значение</th><th>Фрагмент последовательности</th></tr>
+                </thead>
+                <tbody>
+                    {% for m in enhanced_minima %}
+                    <tr {% if forloop.first %}class="highlight"{% endif %}>
+                        <td><strong>{{ m.position }}</strong></td>
+                        <td><strong>{{ m.value|floatformat:4 }}</strong></td>
+                        <td><code>{{ m.sequence_region }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p><small>Выделен глобальный минимум</small></p>
+        {% endif %}
+        
+        <!-- ВСЕ ТАНДЕМНЫЕ ПОВТОРЫ -->
+        {% if short_repeats %}
+        <h3>🎯 Найденные тандемные повторы (общая длина ≥ {{ min_repeat_len }} нт)</h3>
+        <p><strong>Всего найдено: {{ short_repeats|length }} повторов</strong></p>
+        <div class="scrollable-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Позиция (start-end)</th>
+                        <th>Тип</th>
+                        <th>Мотив</th>
+                        <th>Кол-во повторов</th>
+                        <th>Общая длина (нт)</th>
+                        <th>В гене</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in short_repeats %}
+                    <tr>
+                        <td>{{ r.start }} - {{ r.end }}</td>
+                        <td>
+                            <span class="badge {% if r.type == 'homopolymer' %}badge-low{% else %}badge-good{% endif %}">
+                                {{ r.type }}
+                            </span>
+                        </td>
+                        <td><code>{{ r.motif }}</code></td>
+                        <td>{{ r.repeat_count }}</td>
+                        <td><strong>{{ r.total_len }}</strong></td>
+                        <td>
+                            {% if r.in_gene %}
+                            <span style="color: green;">✓ в гене</span>
+                            {% else %}
+                            <span style="color: gray;">✗ межгенный</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <!-- ВСЕ УЧАСТКИ НИЗКОЙ СЛОЖНОСТИ -->
+        {% if low_regions %}
+        <h3>⚠️ Участки низкой сложности (значение &lt; {{ threshold }})</h3>
+        <div class="scrollable-table">
+            <table>
+                <thead>
+                    <tr><th>Позиция (центр окна)</th><th>Значение</th></tr>
+                </thead>
+                <tbody>
+                    {% for pos, val in low_regions %}
+                    <tr {% if pos == global_min_pos %}class="highlight"{% endif %}>
+                        <td>
+                            {{ pos }}
+                            {% if pos == global_min_pos %}
+                            (минимальный)
+                            {% endif %}
+                        </td>
+                        <td>{{ val|floatformat:4 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <!-- АННОТАЦИЯ ГЕНОВ -->
+        {% if genes %}
+        <h3>🧬 Аннотированные гены</h3>
+        <div class="scrollable-table">
+            <table>
+                <thead>
+                    <tr><th>Ген</th><th>Старт</th><th>Конец</th><th>Длина</th><th>Цепь</th></tr>
+                </thead>
+                <tbody>
+                    {% for gene in genes %}
+                    <tr {% if gene.start <= global_min_pos and gene.end >= global_min_pos %}class="highlight"{% endif %}>
+                        <td><strong>{{ gene.name }}</strong></td>
+                        <td>{{ gene.start }}</td>
+                        <td>{{ gene.end }}</td>
+                        <td>{{ gene.end|add:gene.start|add:"-1" }}</td>
+                        <td>{{ gene.strand }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button onclick="window.location.reload()" style="background: #6c757d;">🔄 Новый анализ</button>
+            <button onclick="window.print()" style="background: #6c757d;">🖨 Печать отчета</button>
+        </div>
+        {% endif %}
+    </div>
+    
+    <script>
+        const methodSelect = document.querySelector('select[name="method"]');
+        const alphabetGroup = document.getElementById('alphabet_group');
+        
+        function toggleOptions() {
+            const method = methodSelect.value;
+            
+            if (method === 'linguistic' || method === 'shannon' || method === 'shannon2') {
+                alphabetGroup.style.display = 'block';
+            } else {
+                alphabetGroup.style.display = 'none';
+            }
+        }
+        
+        if (methodSelect) {
+            methodSelect.addEventListener('change', toggleOptions);
+            toggleOptions();
+        }
+    </script>
+</body>
+</html>

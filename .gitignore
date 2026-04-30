@@ -1,0 +1,46 @@
+# Виртуальное окружение
+venv/
+env/
+.venv/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# База данных
+db.sqlite3
+*.db
+
+# Миграции (опционально, можно оставить)
+# */migrations/
+
+# Статика
+staticfiles/
+static/
+
+# Медиа-файлы (загруженные пользователем FASTA/BED)
+media/
+
+# Логи
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Файлы окружения
+.env
+*.env
+
+# Render
+*.pid

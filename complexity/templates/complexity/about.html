@@ -1,0 +1,48 @@
+{% extends 'complexity/base.html' %}
+
+{% block title %}О проекте{% endblock %}
+
+{% block content %}
+<h2>📖 О программе визуализации сложности генетических текстов</h2>
+
+<p>Данная программа разработана в рамках дипломной работы студентки группы 802-02 <strong>Митиной Алины Валерьевны</strong>.</p>
+
+<h3>👨‍🏫 Научный руководитель</h3>
+<p>профессор, доктор биологических наук, профессор РАН <strong>Орлов Ю.Л.</strong></p>
+
+<h3>🔬 Реализованные методы оценки сложности</h3>
+
+<table>
+    <thead>
+        <tr><th>Метод</th><th>Формула/Алгоритм</th><th>Источник</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>Лингвистическая сложность</td><td>CL = (∑V_i)/(∑V_i_max)</td><td>Troyanskaya et al., 2002</td></tr>
+        <tr><td>Энтропия Шеннона (1-й порядок)</td><td>H = -Σp(i)·log₄p(i)</td><td>Shannon, 1948</td></tr>
+        <tr><td>Энтропия Шеннона (2-й порядок)</td><td>H₂ = -Σp(ij)·log₁₆p(ij)</td><td>Shannon, 1948</td></tr>
+        <tr><td>Мера мономеров</td><td>C = Ch/L</td><td>Орлов и др., 2003</td></tr>
+        <tr><td>LZ-сложность</td><td>Алгоритм Лемпеля-Зива</td><td>Orlov et al., 2003</td></tr>
+        <tr><td>GC-содержание</td><td>GC% = (G+C)/N</td><td>—</td></tr>
+    </tbody>
+</table>
+
+<h3>🎯 Результаты, полученные в работе</h3>
+<ul>
+    <li><strong>SARS-CoV-2:</strong> выявлен участок низкой сложности в гене S-белка (позиция ~24 625 нт)</li>
+    <li><strong>Вирус паротита:</strong> участок низкой сложности в гене NP (позиция ~1 625 нт)</li>
+    <li>Установлено, что белок-кодирующие последовательности имеют более высокую сложность, чем некодирующие</li>
+</ul>
+
+<h3>🛠 Технологический стек</h3>
+<ul>
+    <li><strong>Python 3.10+</strong> — язык программирования</li>
+    <li><strong>Django 4.2</strong> — веб-фреймворк</li>
+    <li><strong>Matplotlib</strong> — визуализация данных</li>
+    <li><strong>NumPy</strong> — численные вычисления</li>
+</ul>
+
+<h3>🔗 Ссылка на исходный код</h3>
+<p>GitHub: <a href="https://github.com/Alinabio/complexity.git" target="_blank">https://github.com/Alinabio/complexity.git</a></p>
+
+<p style="margin-top: 30px;"><a href="{% url 'index' %}" class="btn">← На главную</a></p>
+{% endblock %}

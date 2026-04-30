@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Результаты анализа</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #1e3c72;
+        }
+        .stats {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .stats div {
+            padding: 5px;
+        }
+        img {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #f0f0f0;
+        }
+        .btn {
+            display: inline-block;
+            background: #1e3c72;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            background: #2a5298;
+        }
+        @media print {
+            .btn, form { display: none; }
+            body { margin: 0; padding: 0; }
+            .container { box-shadow: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 Результаты анализа: {{ method_name }}</h1>
+        
+        <div class="stats">
+            <div><strong>Длина последовательности:</strong> {{ sequence_length }} нт</div>
+            <div><strong>Длина окна:</strong> {{ window_size }} нт</div>
+            <div><strong>Шаг скольжения:</strong> {{ step }} нт</div>
+            <div><strong>Среднее значение:</strong> {{ avg_value }}</div>
+            <div><strong>Минимум:</strong> {{ min_value }}</div>
+            <div><strong>Максимум:</strong> {{ max_value }}</div>
+            <div><strong>Участков низкой сложности:</strong> {{ low_regions_count }}</div>
+        </div>
+        
+        <img src="data:image/png;base64,{{ image_base64 }}" alt="График сложности">
+        
+        {% if low_regions %}
+        <h2>⚠️ Участки низкой сложности</h2>
+        <table>
+            <thead>
+                <tr><th>Позиция (центр окна)</th><th>Значение</th></tr>
+            </thead>
+            <tbody>
+                {% for pos, val in low_regions %}
+                <tr><td>{{ pos }}</td><td>{{ val|floatformat:4 }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        
+        {% if genes %}
+        <h2>🧬 Аннотированные гены</h2>
+        <table>
+            <thead>
+                <tr><th>Ген</th><th>Старт</th><th>Конец</th><th>Цепь</th></tr>
+            </thead>
+            <tbody>
+                {% for gene in genes %}
+                <tr><td>{{ gene.name }}</td><td>{{ gene.start }}</td><td>{{ gene.end }}</td><td>{{ gene.strand }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        
+        <a href="/" class="btn">← Новый анализ</a>
+        <button onclick="window.print()" class="btn" style="background: #6c757d;">🖨 Печать</button>
+    </div>
+</body>
+</html>
