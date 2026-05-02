@@ -42,6 +42,22 @@ DATABASES = {
     )
 }
 
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],  # здесь можно указать дополнительные папки с шаблонами
+        'APP_DIRS': True,  # эта строка очень важна: она говорит Django искать шаблоны в папках приложений
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
 # Статические файлы
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
