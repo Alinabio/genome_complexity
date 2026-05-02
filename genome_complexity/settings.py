@@ -11,6 +11,8 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'  # ВАЖНО: на Render'e 
 
 ALLOWED_HOSTS = ['*']  # На время деплоя можно так, потом уточнить
 
+ROOT_URLCONF = 'genome_complexity.urls'
+
 # Приложения (ваши)
 INSTALLED_APPS = [
     'django.contrib.admin',
