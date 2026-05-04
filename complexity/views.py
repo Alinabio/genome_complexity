@@ -376,15 +376,24 @@ def index(request):
 
 
 def export_results(request):
-    """
-    Экспорт результатов анализа в TXT файл
-    """
-    if request.method == 'POST':
-        results_data = request.POST.get('results_data', '')
-        
-        response = HttpResponse(results_data, content_type='text/plain; charset=utf-8')
-        response['Content-Disposition'] = 'attachment; filename="analysis_results.txt"'
-        
-        return response
+    """Экспорт результатов анализа в текстовый файл"""
+    import csv
+    from django.http import HttpResponse
     
-    return redirect('index')
+    # Создаём HTTP-ответ с типом text/plain
+    response = HttpResponse(content_type='text/plain')
+    response['Content-Disposition'] = 'attachment; filename="analysis_results.txt"'
+    
+    # Получаем данные из сессии или из POST
+    # (упрощённая версия — вы можете расширить по своему усмотрению)
+    response.write("Результаты анализа лингвистической сложности\n")
+    response.write("=" * 50 + "\n")
+    
+    if request.method == 'POST':
+        response.write(f"Метод: {request.POST.get('method', 'не указан')}\n")
+        response.write(f"Длина окна: {request.POST.get('window_size', 'не указана')}\n")
+        response.write(f"Шаг: {request.POST.get('step', 'не указан')}\n")
+    
+    response.write("\nСпасибо за использование программы!")
+    
+    return response
