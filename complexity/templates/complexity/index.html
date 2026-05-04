@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализ сложности генома</title>
     <style>
         body {
@@ -128,6 +129,35 @@
             background: #f5f5f5;
             z-index: 10;
         }
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -140,7 +170,7 @@
         {% endif %}
         
         <!-- ФОРМА -->
-        <form method="post" enctype="multipart/form-data">
+        <form method="post" enctype="multipart/form-data" id="analysisForm">
             {% csrf_token %}
             
             <div class="form-group">
@@ -151,10 +181,10 @@
             <div class="form-group">
                 <label>🔬 Метод анализа:</label>
                 <select name="method">
-                    <option value="linguistic">Лингвистическая сложность</option>
-                    <option value="shannon">Энтропия Шеннона</option>
+                    <option value="linguistic">Лингвистическая сложность (Troyanskaya et al., 2002)</option>
+                    <option value="shannon">Энтропия Шеннона (1-й порядок)</option>
                     <option value="shannon2">Энтропия Шеннона (2-й порядок)</option>
-                    <option value="monomer">Мера мономеров</option>
+                    <option value="monomer">Мера мономеров (равномерность состава)</option>
                     <option value="gc">GC-содержание</option>
                 </select>
             </div>
@@ -178,7 +208,7 @@
             </div>
             
             <div class="form-group" id="alphabet_group" style="display: none;">
-                <label>🔤 Размер алфавита:</label>
+                <label>🔤 Размер алфавита (для энтропии и лингвистической сложности):</label>
                 <input type="number" name="alphabet_size" value="4" min="2" max="4">
             </div>
             
@@ -188,7 +218,7 @@
                 <small>Позволяет отобразить гены на графике</small>
             </div>
             
-            <button type="submit">▶ ЗАПУСТИТЬ АНАЛИЗ</button>
+            <button type="submit" class="btn-primary">▶ ЗАПУСТИТЬ АНАЛИЗ</button>
         </form>
         
         <!-- РЕЗУЛЬТАТЫ -->
@@ -340,9 +370,23 @@
         </div>
         {% endif %}
         
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
-            <button onclick="window.location.reload()" style="background: #6c757d;">🔄 Новый анализ</button>
-            <button onclick="window.print()" style="background: #6c757d;">🖨 Печать отчета</button>
+        <!-- КНОПКИ УПРАВЛЕНИЯ -->
+        <div class="btn-group">
+            <button onclick="window.location.reload()" class="btn btn-secondary">
+                🔄 Новый анализ
+            </button>
+            
+            <button onclick="window.print()" class="btn btn-secondary">
+                🖨 Печать отчета
+            </button>
+            
+            <form method="post" action="{% url 'export_results' %}" style="display: inline;">
+                {% csrf_token %}
+                <input type="hidden" name="results_data" value="{{ export_text }}">
+                <button type="submit" class="btn btn-success">
+                    💾 Сохранить как TXT
+                </button>
+            </form>
         </div>
         {% endif %}
     </div>

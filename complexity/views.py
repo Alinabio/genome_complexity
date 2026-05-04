@@ -1,6 +1,7 @@
 import base64
 from io import BytesIO
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
 
 import matplotlib
 matplotlib.use('Agg')
@@ -264,6 +265,79 @@ def index(request):
                     Найден участок низкой сложности (значение {global_min_val:.4f}) на позиции {global_min_pos} нт.
                     """
             
+            # ========== ФОРМИРОВАНИЕ ТЕКСТА ДЛЯ ЭКСПОРТА ==========
+            export_text = []
+            export_text.append("=" * 60)
+            export_text.append("РЕЗУЛЬТАТЫ АНАЛИЗА ГЕНОМНОЙ ПОСЛЕДОВАТЕЛЬНОСТИ")
+            export_text.append("=" * 60)
+            export_text.append(f"Файл: {header}")
+            export_text.append(f"Длина последовательности: {len(sequence)} нт")
+            export_text.append(f"Метод анализа: {method_name}")
+            export_text.append(f"Параметры: окно={window_size}, шаг={step}")
+            export_text.append(f"Порог низкой сложности: {threshold}")
+            export_text.append("")
+            export_text.append("-" * 60)
+            export_text.append("СТАТИСТИКА")
+            export_text.append("-" * 60)
+            export_text.append(f"Средняя сложность: {stats['avg']:.4f}")
+            export_text.append(f"Минимальная сложность: {stats['min']:.4f}")
+            export_text.append(f"Максимальная сложность: {stats['max']:.4f}")
+            export_text.append(f"Участков ниже порога: {len(all_low_points)}")
+            export_text.append(f"Локальных минимумов: {len(local_minima)}")
+            export_text.append(f"Найдено тандемных повторов: {len(significant_repeats)}")
+            export_text.append("")
+            
+            # Участки низкой сложности
+            export_text.append("-" * 60)
+            export_text.append(f"УЧАСТКИ НИЗКОЙ СЛОЖНОСТИ (значение < {threshold})")
+            export_text.append("-" * 60)
+            export_text.append(f"{'Позиция':<12} {'Значение':<10}")
+            export_text.append("-" * 30)
+            for pos, val in all_low_points[:50]:
+                export_text.append(f"{pos:<12} {val:.4f}")
+            if len(all_low_points) > 50:
+                export_text.append(f"... и ещё {len(all_low_points) - 50} участков")
+            export_text.append("")
+            
+            # Тандемные повторы
+            if significant_repeats:
+                export_text.append("-" * 60)
+                export_text.append(f"ТАНДЕМНЫЕ ПОВТОРЫ (длина ≥ {min_repeat_len} нт)")
+                export_text.append("-" * 60)
+                export_text.append(f"{'Старт':<8} {'Конец':<8} {'Тип':<15} {'Мотив':<10} {'Кол-во':<6} {'Длина':<6} {'В гене'}")
+                export_text.append("-" * 70)
+                for r in significant_repeats:
+                    in_gene_str = "Да" if r.get('in_gene', False) else "Нет"
+                    export_text.append(f"{r['start']:<8} {r['end']:<8} {r['type']:<15} {r['motif']:<10} {r['repeat_count']:<6} {r['total_len']:<6} {in_gene_str}")
+                export_text.append("")
+            
+            # Глобальный минимум
+            export_text.append("-" * 60)
+            export_text.append("ГЛОБАЛЬНЫЙ МИНИМУМ СЛОЖНОСТИ")
+            export_text.append("-" * 60)
+            export_text.append(f"Позиция: {global_min_pos} нт")
+            export_text.append(f"Значение: {global_min_val:.4f}")
+            if global_min_gene:
+                export_text.append(f"Находится в гене: {global_min_gene['name']}")
+            export_text.append("")
+            
+            # Аннотированные гены
+            if genes:
+                export_text.append("-" * 60)
+                export_text.append("АННОТИРОВАННЫЕ ГЕНЫ")
+                export_text.append("-" * 60)
+                export_text.append(f"{'Ген':<15} {'Старт':<10} {'Конец':<10} {'Длина':<8} {'Цепь'}")
+                export_text.append("-" * 55)
+                for gene in genes:
+                    export_text.append(f"{gene['name']:<15} {gene['start']:<10} {gene['end']:<10} {gene.get('length', gene['end']-gene['start']):<8} {gene['strand']}")
+                export_text.append("")
+            
+            export_text.append("=" * 60)
+            export_text.append("Конец отчёта")
+            export_text.append("=" * 60)
+            
+            export_string = "\n".join(export_text)
+            
             context = {
                 'show_result': True,
                 'image_base64': image_base64,
@@ -288,6 +362,7 @@ def index(request):
                 'method': method,
                 'threshold': threshold,
                 'min_repeat_len': min_repeat_len,
+                'export_text': export_string,
             }
             
             return render(request, 'complexity/index.html', context)
@@ -298,3 +373,18 @@ def index(request):
             return render(request, 'complexity/index.html', {'error': f'Ошибка: {str(e)}'})
     
     return render(request, 'complexity/index.html')
+
+
+def export_results(request):
+    """
+    Экспорт результатов анализа в TXT файл
+    """
+    if request.method == 'POST':
+        results_data = request.POST.get('results_data', '')
+        
+        response = HttpResponse(results_data, content_type='text/plain; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="analysis_results.txt"'
+        
+        return response
+    
+    return redirect('index')
