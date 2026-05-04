@@ -2,7 +2,6 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Анализ сложности генома</title>
     <style>
         body {
@@ -130,33 +129,23 @@
             z-index: 10;
         }
         .btn-group {
+            margin-top: 20px;
             display: flex;
-            gap: 15px;
+            gap: 10px;
             flex-wrap: wrap;
-            justify-content: center;
-            margin-top: 30px;
         }
-        .btn {
+        .btn-group button {
+            width: auto;
             padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            border: none;
-            text-decoration: none;
-            display: inline-block;
         }
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
+        .btn-export {
+            background: #28a745 !important;
         }
-        .btn-success {
-            background: #28a745;
-            color: white;
+        .btn-print {
+            background: #6c757d !important;
         }
-        .btn-primary {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            color: white;
+        .btn-new {
+            background: #6c757d !important;
         }
     </style>
 </head>
@@ -180,11 +169,11 @@
             
             <div class="form-group">
                 <label>🔬 Метод анализа:</label>
-                <select name="method">
-                    <option value="linguistic">Лингвистическая сложность (Troyanskaya et al., 2002)</option>
-                    <option value="shannon">Энтропия Шеннона (1-й порядок)</option>
+                <select name="method" id="methodSelect">
+                    <option value="linguistic">Лингвистическая сложность</option>
+                    <option value="shannon">Энтропия Шеннона</option>
                     <option value="shannon2">Энтропия Шеннона (2-й порядок)</option>
-                    <option value="monomer">Мера мономеров (равномерность состава)</option>
+                    <option value="monomer">Мера мономеров</option>
                     <option value="gc">GC-содержание</option>
                 </select>
             </div>
@@ -208,7 +197,7 @@
             </div>
             
             <div class="form-group" id="alphabet_group" style="display: none;">
-                <label>🔤 Размер алфавита (для энтропии и лингвистической сложности):</label>
+                <label>🔤 Размер алфавита:</label>
                 <input type="number" name="alphabet_size" value="4" min="2" max="4">
             </div>
             
@@ -218,7 +207,7 @@
                 <small>Позволяет отобразить гены на графике</small>
             </div>
             
-            <button type="submit" class="btn-primary">▶ ЗАПУСТИТЬ АНАЛИЗ</button>
+            <button type="submit">▶ ЗАПУСТИТЬ АНАЛИЗ</button>
         </form>
         
         <!-- РЕЗУЛЬТАТЫ -->
@@ -280,7 +269,7 @@
         <p><small>Выделен глобальный минимум</small></p>
         {% endif %}
         
-        <!-- ВСЕ ТАНДЕМНЫЕ ПОВТОРЫ -->
+        <!-- ТАНДЕМНЫЕ ПОВТОРЫ -->
         {% if short_repeats %}
         <h3>🎯 Найденные тандемные повторы (общая длина ≥ {{ min_repeat_len }} нт)</h3>
         <p><strong>Всего найдено: {{ short_repeats|length }} повторов</strong></p>
@@ -322,7 +311,7 @@
         </div>
         {% endif %}
         
-        <!-- ВСЕ УЧАСТКИ НИЗКОЙ СЛОЖНОСТИ -->
+        <!-- УЧАСТКИ НИЗКОЙ СЛОЖНОСТИ -->
         {% if low_regions %}
         <h3>⚠️ Участки низкой сложности (значение &lt; {{ threshold }})</h3>
         <div class="scrollable-table">
@@ -363,36 +352,32 @@
                         <td>{{ gene.end }}</td>
                         <td>{{ gene.end|add:gene.start|add:"-1" }}</td>
                         <td>{{ gene.strand }}</td>
-                    </tr>
+                    </table>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% endif %}
         
-        <!-- КНОПКИ УПРАВЛЕНИЯ -->
+        <!-- КНОПКИ -->
         <div class="btn-group">
-            <button onclick="window.location.reload()" class="btn btn-secondary">
-                🔄 Новый анализ
-            </button>
-            
-            <button onclick="window.print()" class="btn btn-secondary">
-                🖨 Печать отчета
-            </button>
+            <button onclick="window.location.reload()" class="btn-new">🔄 Новый анализ</button>
+            <button onclick="window.print()" class="btn-print">🖨 Печать отчета</button>
             
             <form method="post" action="{% url 'export_results' %}" style="display: inline;">
                 {% csrf_token %}
-                <input type="hidden" name="results_data" value="{{ export_text }}">
-                <button type="submit" class="btn btn-success">
-                    💾 Сохранить как TXT
-                </button>
+                <input type="hidden" name="method" value="{{ method }}">
+                <input type="hidden" name="window_size" value="{{ window_size }}">
+                <input type="hidden" name="step" value="{{ step }}">
+                <input type="hidden" name="profile_data" value='{{ profile_data_json }}'>
+                <button type="submit" class="btn-export">📊 Экспорт CSV</button>
             </form>
         </div>
         {% endif %}
     </div>
     
     <script>
-        const methodSelect = document.querySelector('select[name="method"]');
+        const methodSelect = document.getElementById('methodSelect');
         const alphabetGroup = document.getElementById('alphabet_group');
         
         function toggleOptions() {

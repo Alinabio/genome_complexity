@@ -1,4 +1,6 @@
 import base64
+import json
+import csv
 from io import BytesIO
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
@@ -110,6 +112,12 @@ def index(request):
             if not profile:
                 return render(request, 'complexity/index.html', {'error': 'Ошибка при расчете профиля'})
             
+            # Сохраняем профиль в сессию для экспорта
+            request.session['profile_data'] = profile
+            request.session['method_name'] = method_name
+            request.session['window_size'] = window_size
+            request.session['step'] = step
+            
             # Парсинг BED
             genes = []
             if bed_file:
@@ -174,10 +182,6 @@ def index(request):
             print(f"Длина генома: {len(sequence)} нт")
             print(f"Всего найдено повторов: {len(all_repeats)}")
             print(f"Значимых повторов (>= {min_repeat_len} нт): {len(significant_repeats)}")
-            if significant_repeats:
-                print("Первые 10 повторов:")
-                for r in significant_repeats[:10]:
-                    print(f"  {r['start']}-{r['end']}: {r['type']} {r['motif']} (длина {r['total_len']} нт, в гене: {r['in_gene']})")
             print("=" * 60)
             
             # Находим глобальный минимум
@@ -265,84 +269,12 @@ def index(request):
                     Найден участок низкой сложности (значение {global_min_val:.4f}) на позиции {global_min_pos} нт.
                     """
             
-            # ========== ФОРМИРОВАНИЕ ТЕКСТА ДЛЯ ЭКСПОРТА ==========
-            export_text = []
-            export_text.append("=" * 60)
-            export_text.append("РЕЗУЛЬТАТЫ АНАЛИЗА ГЕНОМНОЙ ПОСЛЕДОВАТЕЛЬНОСТИ")
-            export_text.append("=" * 60)
-            export_text.append(f"Файл: {header}")
-            export_text.append(f"Длина последовательности: {len(sequence)} нт")
-            export_text.append(f"Метод анализа: {method_name}")
-            export_text.append(f"Параметры: окно={window_size}, шаг={step}")
-            export_text.append(f"Порог низкой сложности: {threshold}")
-            export_text.append("")
-            export_text.append("-" * 60)
-            export_text.append("СТАТИСТИКА")
-            export_text.append("-" * 60)
-            export_text.append(f"Средняя сложность: {stats['avg']:.4f}")
-            export_text.append(f"Минимальная сложность: {stats['min']:.4f}")
-            export_text.append(f"Максимальная сложность: {stats['max']:.4f}")
-            export_text.append(f"Участков ниже порога: {len(all_low_points)}")
-            export_text.append(f"Локальных минимумов: {len(local_minima)}")
-            export_text.append(f"Найдено тандемных повторов: {len(significant_repeats)}")
-            export_text.append("")
-            
-            # Участки низкой сложности
-            export_text.append("-" * 60)
-            export_text.append(f"УЧАСТКИ НИЗКОЙ СЛОЖНОСТИ (значение < {threshold})")
-            export_text.append("-" * 60)
-            export_text.append(f"{'Позиция':<12} {'Значение':<10}")
-            export_text.append("-" * 30)
-            for pos, val in all_low_points[:50]:
-                export_text.append(f"{pos:<12} {val:.4f}")
-            if len(all_low_points) > 50:
-                export_text.append(f"... и ещё {len(all_low_points) - 50} участков")
-            export_text.append("")
-            
-            # Тандемные повторы
-            if significant_repeats:
-                export_text.append("-" * 60)
-                export_text.append(f"ТАНДЕМНЫЕ ПОВТОРЫ (длина ≥ {min_repeat_len} нт)")
-                export_text.append("-" * 60)
-                export_text.append(f"{'Старт':<8} {'Конец':<8} {'Тип':<15} {'Мотив':<10} {'Кол-во':<6} {'Длина':<6} {'В гене'}")
-                export_text.append("-" * 70)
-                for r in significant_repeats:
-                    in_gene_str = "Да" if r.get('in_gene', False) else "Нет"
-                    export_text.append(f"{r['start']:<8} {r['end']:<8} {r['type']:<15} {r['motif']:<10} {r['repeat_count']:<6} {r['total_len']:<6} {in_gene_str}")
-                export_text.append("")
-            
-            # Глобальный минимум
-            export_text.append("-" * 60)
-            export_text.append("ГЛОБАЛЬНЫЙ МИНИМУМ СЛОЖНОСТИ")
-            export_text.append("-" * 60)
-            export_text.append(f"Позиция: {global_min_pos} нт")
-            export_text.append(f"Значение: {global_min_val:.4f}")
-            if global_min_gene:
-                export_text.append(f"Находится в гене: {global_min_gene['name']}")
-            export_text.append("")
-            
-            # Аннотированные гены
-            if genes:
-                export_text.append("-" * 60)
-                export_text.append("АННОТИРОВАННЫЕ ГЕНЫ")
-                export_text.append("-" * 60)
-                export_text.append(f"{'Ген':<15} {'Старт':<10} {'Конец':<10} {'Длина':<8} {'Цепь'}")
-                export_text.append("-" * 55)
-                for gene in genes:
-                    export_text.append(f"{gene['name']:<15} {gene['start']:<10} {gene['end']:<10} {gene.get('length', gene['end']-gene['start']):<8} {gene['strand']}")
-                export_text.append("")
-            
-            export_text.append("=" * 60)
-            export_text.append("Конец отчёта")
-            export_text.append("=" * 60)
-            
-            export_string = "\n".join(export_text)
-            
             context = {
                 'show_result': True,
                 'image_base64': image_base64,
                 'header': header[:200] if header else 'Последовательность',
                 'method_name': method_name,
+                'method': method,
                 'avg_value': round(stats['avg'], 4),
                 'min_value': round(stats['min'], 4),
                 'max_value': round(stats['max'], 4),
@@ -359,10 +291,9 @@ def index(request):
                 'window_size': window_size,
                 'step': step,
                 'genes': genes,
-                'method': method,
                 'threshold': threshold,
                 'min_repeat_len': min_repeat_len,
-                'export_text': export_string,
+                'profile_data_json': json.dumps(profile),  # для экспорта
             }
             
             return render(request, 'complexity/index.html', context)
@@ -376,24 +307,49 @@ def index(request):
 
 
 def export_results(request):
-    """Экспорт результатов анализа в текстовый файл"""
-    import csv
-    from django.http import HttpResponse
-    
-    # Создаём HTTP-ответ с типом text/plain
-    response = HttpResponse(content_type='text/plain')
-    response['Content-Disposition'] = 'attachment; filename="analysis_results.txt"'
-    
-    # Получаем данные из сессии или из POST
-    # (упрощённая версия — вы можете расширить по своему усмотрению)
-    response.write("Результаты анализа лингвистической сложности\n")
-    response.write("=" * 50 + "\n")
+    """Экспорт результатов анализа в CSV файл"""
     
     if request.method == 'POST':
-        response.write(f"Метод: {request.POST.get('method', 'не указан')}\n")
-        response.write(f"Длина окна: {request.POST.get('window_size', 'не указана')}\n")
-        response.write(f"Шаг: {request.POST.get('step', 'не указан')}\n")
+        # Получаем данные из формы
+        method = request.POST.get('method', 'linguistic')
+        window_size = request.POST.get('window_size', '50')
+        step = request.POST.get('step', '100')
+        
+        # Получаем данные профиля из POST или сессии
+        profile_json = request.POST.get('profile_data', '')
+        profile_data = []
+        
+        if profile_json:
+            try:
+                profile_data = json.loads(profile_json)
+            except:
+                profile_data = []
+        
+        if not profile_data:
+            # Пробуем из сессии
+            profile_data = request.session.get('profile_data', [])
+        
+        # Создаём CSV ответ
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="complexity_results_{method}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['# Результаты анализа лингвистической сложности'])
+        writer.writerow([f'# Метод: {method}'])
+        writer.writerow([f'# Длина окна: {window_size}'])
+        writer.writerow([f'# Шаг: {step}'])
+        writer.writerow([f'# Количество точек: {len(profile_data)}'])
+        writer.writerow([])
+        writer.writerow(['Позиция (центр окна)', 'Значение сложности'])
+        
+        for item in profile_data:
+            # Поддерживаем оба формата: (pos, val) или {'position': pos, 'value': val}
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                writer.writerow([item[0], item[1]])
+            elif isinstance(item, dict):
+                writer.writerow([item.get('position', 0), item.get('value', 0)])
+        
+        return response
     
-    response.write("\nСпасибо за использование программы!")
-    
-    return response
+    # Если GET запрос — перенаправляем на главную
+    return redirect('index')
