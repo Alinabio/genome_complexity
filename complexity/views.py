@@ -188,7 +188,7 @@ def index(request):
             global_min_pos = None
             global_min_val = 1.0
             for pos, val in profile:
-                if val < global_min_val and pos < len(sequence) - 500:  # исключаем последние 500 нт
+                if val < global_min_val and pos < len(sequence) - 500:
                     global_min_val = val
                     global_min_pos = pos
             
@@ -203,13 +203,13 @@ def index(request):
             positions = [p[0] for p in profile]
             values = [v[1] for v in profile]
             
-            # Создаём фигуру с двумя вертикальными осями: верхняя — график, нижняя — гены
+            # Создаём фигуру с двумя осями
             fig = plt.figure(figsize=(14, 8))
             
-            # Основная ось для графика сложности (занимает 80% высоты)
+            # Основная ось для графика сложности
             ax_main = plt.axes([0.08, 0.25, 0.88, 0.65])
             
-            # Ось для генов (занимает 10% высоты, располагается под основной)
+            # Ось для генов (под основной)
             ax_genes = plt.axes([0.08, 0.08, 0.88, 0.12])
             
             # ===== ОСНОВНОЙ ГРАФИК =====
@@ -249,21 +249,18 @@ def index(request):
             # ===== ОТДЕЛЬНАЯ ПАНЕЛЬ ДЛЯ ГЕНОВ =====
             ax_genes.set_xlim(ax_main.get_xlim())
             ax_genes.set_ylim(0, 1)
-            ax_genes.set_yticks([])  # убираем вертикальные метки
+            ax_genes.set_yticks([])
             ax_genes.set_xlabel('')
             ax_genes.set_ylabel('Гены', fontsize=9, rotation=0, ha='right', va='center')
             ax_genes.yaxis.set_label_coords(-0.05, 0.5)
             
-            # Убираем рамку и лишние элементы
+            # Убираем рамку
             for spine in ax_genes.spines.values():
                 spine.set_visible(False)
             ax_genes.tick_params(axis='x', bottom=False, labelbottom=False)
             
             if genes:
-                # Сортируем гены по позиции
                 genes_sorted = sorted(genes, key=lambda x: x['start'])
-                
-                # Вычисляем высоту полосы (фиксированная)
                 bar_height = 0.4
                 y_pos = 0.5
                 
@@ -271,42 +268,44 @@ def index(request):
                     if gene['start'] < len(sequence) and gene['end'] < len(sequence):
                         start = max(ax_main.get_xlim()[0], gene['start'])
                         end = min(ax_main.get_xlim()[1], gene['end'])
-                        
-                        # Чередуем цвета
                         color_gene = '#2ecc71' if i % 2 == 0 else '#27ae60'
                         
-                        # Рисуем прямоугольник (полосу гена)
                         rect = plt.Rectangle((start, y_pos - bar_height/2), 
                                             end - start, bar_height,
                                             facecolor=color_gene, alpha=0.7, edgecolor='darkgreen', linewidth=0.5)
                         ax_genes.add_patch(rect)
                         
-                        # Добавляем подпись гена (только если ширина полосы достаточна)
                         width = end - start
-                        if width > 100:  # не подписываем слишком короткие гены
-                            center = (start + end) / 2
+                        center = (start + end) / 2
+                        if width > 100:
                             ax_genes.text(center, y_pos, gene['name'], 
                                         ha='center', va='center', fontsize=7, 
                                         rotation=0, fontweight='bold',
                                         bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8))
                         else:
-                            # Для коротких генов — подпись под полосой
-                            ax_genes.text(center, y_pos - bar_height/2 - 0.1, gene['name'], 
+                            ax_genes.text(center, y_pos - bar_height/2 - 0.08, gene['name'], 
                                         ha='center', va='top', fontsize=6, rotation=45)
                 
-                # Добавляем стрелку направления
+                # Стрелка направления
                 ax_genes.annotate('', xy=(ax_main.get_xlim()[1], y_pos), xytext=(ax_main.get_xlim()[0], y_pos),
                                 arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
             else:
-                # Если генов нет — просто надпись
                 ax_genes.text(ax_main.get_xlim()[0] + (ax_main.get_xlim()[1] - ax_main.get_xlim()[0])/2, 0.5, 
                             'BED-файл не загружен — аннотация генов отсутствует',
                             ha='center', va='center', fontsize=9, style='italic', color='gray')
             
-            # Добавляем разделительную линию между графиками
+            # Добавляем разделительную линию
             ax_main.axhline(y=ax_main.get_ylim()[0], color='gray', linewidth=0.5, linestyle='-')
             
             plt.tight_layout()
+            
+            # Сохраняем график в base64
+            buffer = BytesIO()
+            plt.savefig(buffer, format='png', dpi=100)
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.getvalue()).decode()
+            buffer.close()
+            plt.close()
             
             # Биологическая интерпретация
             biological_interpretation = ""
