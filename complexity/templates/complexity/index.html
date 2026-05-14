@@ -147,6 +147,23 @@
         .btn-new {
             background: #6c757d !important;
         }
+                /* Улучшенное отображение графиков */
+        img {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+        
+        /* Для печати — чтобы гены не терялись */
+        @media print {
+            img {
+                max-width: 100%;
+                page-break-inside: avoid;
+            }
+            .stats, .interpretation {
+                page-break-inside: avoid;
+            }
+        }
     </style>
 </head>
 <body>

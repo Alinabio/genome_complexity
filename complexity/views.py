@@ -184,11 +184,11 @@ def index(request):
             print(f"Значимых повторов (>= {min_repeat_len} нт): {len(significant_repeats)}")
             print("=" * 60)
             
-            # Находим глобальный минимум
+            # Находим глобальный минимум (исключая поли-A хвост в конце)
             global_min_pos = None
             global_min_val = 1.0
             for pos, val in profile:
-                if val < global_min_val:
+                if val < global_min_val and pos < len(sequence) - 500:  # исключаем последние 500 нт
                     global_min_val = val
                     global_min_pos = pos
             
@@ -199,51 +199,85 @@ def index(request):
                     global_min_gene = gene
                     break
             
-            # Генерация графика
+            # ========== ГЕНЕРАЦИЯ ГРАФИКА С УЛУЧШЕННЫМ ОТОБРАЖЕНИЕМ ГЕНОВ ==========
             positions = [p[0] for p in profile]
             values = [v[1] for v in profile]
             
-            fig, ax = plt.subplots(figsize=(14, 6))
-            ax.plot(positions, values, '-', linewidth=1, color=color, label=method_name)
+            # Создаём фигуру с дополнительным пространством снизу для генов
+            fig, ax = plt.subplots(figsize=(14, 7))
             
+            # Основной график
+            ax.plot(positions, values, '-', linewidth=1.5, color=color, label=method_name, zorder=2)
+            
+            # Порог и заливка
             if threshold is not None:
-                ax.axhline(y=threshold, color='r', linestyle='--', label=f'Порог ({threshold})')
+                ax.axhline(y=threshold, color='r', linestyle='--', linewidth=1, label=f'Порог ({threshold})', zorder=1)
                 ax.fill_between(positions, values, threshold, 
                                where=(np.array(values) < threshold), 
-                               color='red', alpha=0.3)
-                
-                for pos, val, _ in local_minima[:10]:
-                    ax.plot(pos, val, 'ro', markersize=5)
+                               color='red', alpha=0.25, zorder=1)
             
+            # Глобальный минимум
             if global_min_pos:
                 ax.plot(global_min_pos, global_min_val, 'r*', markersize=12, 
-                       label=f'Глобальный минимум: {global_min_val:.3f}')
-                ax.annotate(f'Минимум\n{global_min_val:.3f}', 
+                       label=f'Глобальный минимум: {global_min_val:.3f}', zorder=3)
+                ax.annotate(f'{global_min_val:.3f}', 
                            xy=(global_min_pos, global_min_val), 
-                           xytext=(10, -20), textcoords='offset points',
-                           fontsize=9, bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.8))
+                           xytext=(5, -10), textcoords='offset points',
+                           fontsize=8, fontweight='bold',
+                           bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7))
             
-            # Отметка генов из BED
+            # ========== НОВОЕ ОТОБРАЖЕНИЕ ГЕНОВ (под графиком) ==========
             if genes:
+                # Определяем границы графика
+                x_min, x_max = min(positions), max(positions)
                 y_min, y_max = ax.get_ylim()
-                for gene in genes:
+                
+                # Вычисляем положение для полос генов (чуть ниже основного графика)
+                gene_bar_y = y_min - (y_max - y_min) * 0.08
+                
+                # Для каждого гена рисуем полосу и подпись
+                for i, gene in enumerate(genes):
                     if gene['start'] < len(sequence) and gene['end'] < len(sequence):
-                        center = (gene['start'] + gene['end']) / 2
-                        ax.annotate(gene['name'], xy=(center, y_max * 0.95), 
-                                   ha='center', fontsize=8, rotation=45,
-                                   bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7))
-                        ax.axvspan(gene['start'], gene['end'], alpha=0.2, color='green')
+                        start = max(x_min, gene['start'])
+                        end = min(x_max, gene['end'])
+                        
+                        # Чередуем цвета полос для лучшей читаемости
+                        color_gene = '#2ecc71' if i % 2 == 0 else '#27ae60'
+                        
+                        # Рисуем полосу гена
+                        ax.axvspan(start, end, ymin=0.92, ymax=0.98, 
+                                  alpha=0.5, color=color_gene, zorder=0)
+                        
+                        # Подпись гена под полосой (с небольшим смещением)
+                        center = (start + end) / 2
+                        ax.annotate(gene['name'], 
+                                   xy=(center, gene_bar_y), 
+                                   xytext=(0, -5), textcoords='offset points',
+                                   ha='center', va='top', fontsize=7, 
+                                   rotation=45, zorder=4,
+                                   bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7))
+                
+                # Добавляем выноску о генах
+                ax.text(x_max * 0.98, gene_bar_y, 'Гены', ha='right', va='top', 
+                       fontsize=8, style='italic', color='#27ae60')
             
-            ax.set_xlabel('Позиция в геноме (нт)')
-            ax.set_ylabel(ylabel)
+            # Оформление
+            ax.set_xlabel('Позиция в геноме (нт)', fontsize=11)
+            ax.set_ylabel(ylabel, fontsize=11)
             title_text = f'{method_name}'
             if header:
                 title_text += f' | {header[:80]}...' if len(header) > 80 else f' | {header}'
-            ax.set_title(title_text)
-            ax.legend(loc='upper right')
-            ax.grid(True, alpha=0.3)
+            ax.set_title(title_text, fontsize=12)
+            ax.legend(loc='upper right', fontsize=9, framealpha=0.9)
+            ax.grid(True, alpha=0.2, linestyle='--')
+            
             if method != 'gc':
-                ax.set_ylim(0, 1.05)
+                ax.set_ylim(bottom=-0.05, top=1.05)
+            
+            # Устанавливаем границы для отображения генов
+            if genes:
+                y_min, y_max = ax.get_ylim()
+                ax.set_ylim(bottom=y_min - (y_max - y_min) * 0.12)
             
             plt.tight_layout()
             
@@ -293,7 +327,7 @@ def index(request):
                 'genes': genes,
                 'threshold': threshold,
                 'min_repeat_len': min_repeat_len,
-                'profile_data_json': json.dumps(profile),  # для экспорта
+                'profile_data_json': json.dumps(profile),
             }
             
             return render(request, 'complexity/index.html', context)
@@ -310,12 +344,10 @@ def export_results(request):
     """Экспорт результатов анализа в CSV файл"""
     
     if request.method == 'POST':
-        # Получаем данные из формы
         method = request.POST.get('method', 'linguistic')
         window_size = request.POST.get('window_size', '50')
         step = request.POST.get('step', '100')
         
-        # Получаем данные профиля из POST или сессии
         profile_json = request.POST.get('profile_data', '')
         profile_data = []
         
@@ -326,10 +358,8 @@ def export_results(request):
                 profile_data = []
         
         if not profile_data:
-            # Пробуем из сессии
             profile_data = request.session.get('profile_data', [])
         
-        # Создаём CSV ответ
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="complexity_results_{method}.csv"'
         
@@ -343,7 +373,6 @@ def export_results(request):
         writer.writerow(['Позиция (центр окна)', 'Значение сложности'])
         
         for item in profile_data:
-            # Поддерживаем оба формата: (pos, val) или {'position': pos, 'value': val}
             if isinstance(item, (list, tuple)) and len(item) >= 2:
                 writer.writerow([item[0], item[1]])
             elif isinstance(item, dict):
@@ -351,5 +380,4 @@ def export_results(request):
         
         return response
     
-    # Если GET запрос — перенаправляем на главную
     return redirect('index')
