@@ -199,94 +199,114 @@ def index(request):
                     global_min_gene = gene
                     break
             
-            # ========== ГЕНЕРАЦИЯ ГРАФИКА С УЛУЧШЕННЫМ ОТОБРАЖЕНИЕМ ГЕНОВ ==========
+            # ========== ГЕНЕРАЦИЯ ГРАФИКА С ОТДЕЛЬНОЙ ПАНЕЛЬЮ ДЛЯ ГЕНОВ ==========
             positions = [p[0] for p in profile]
             values = [v[1] for v in profile]
             
-            # Создаём фигуру с дополнительным пространством снизу для генов
-            fig, ax = plt.subplots(figsize=(14, 7))
+            # Создаём фигуру с двумя вертикальными осями: верхняя — график, нижняя — гены
+            fig = plt.figure(figsize=(14, 8))
             
-            # Основной график
-            ax.plot(positions, values, '-', linewidth=1.5, color=color, label=method_name, zorder=2)
+            # Основная ось для графика сложности (занимает 80% высоты)
+            ax_main = plt.axes([0.08, 0.25, 0.88, 0.65])
+            
+            # Ось для генов (занимает 10% высоты, располагается под основной)
+            ax_genes = plt.axes([0.08, 0.08, 0.88, 0.12])
+            
+            # ===== ОСНОВНОЙ ГРАФИК =====
+            ax_main.plot(positions, values, '-', linewidth=1.5, color=color, label=method_name, zorder=2)
             
             # Порог и заливка
             if threshold is not None:
-                ax.axhline(y=threshold, color='r', linestyle='--', linewidth=1, label=f'Порог ({threshold})', zorder=1)
-                ax.fill_between(positions, values, threshold, 
-                               where=(np.array(values) < threshold), 
-                               color='red', alpha=0.25, zorder=1)
+                ax_main.axhline(y=threshold, color='r', linestyle='--', linewidth=1, label=f'Порог ({threshold})', zorder=1)
+                ax_main.fill_between(positions, values, threshold, 
+                                    where=(np.array(values) < threshold), 
+                                    color='red', alpha=0.25, zorder=1)
             
             # Глобальный минимум
             if global_min_pos:
-                ax.plot(global_min_pos, global_min_val, 'r*', markersize=12, 
-                       label=f'Глобальный минимум: {global_min_val:.3f}', zorder=3)
-                ax.annotate(f'{global_min_val:.3f}', 
-                           xy=(global_min_pos, global_min_val), 
-                           xytext=(5, -10), textcoords='offset points',
-                           fontsize=8, fontweight='bold',
-                           bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7))
+                ax_main.plot(global_min_pos, global_min_val, 'r*', markersize=12, 
+                           label=f'Глобальный минимум: {global_min_val:.3f}', zorder=3)
+                ax_main.annotate(f'{global_min_val:.3f}', 
+                               xy=(global_min_pos, global_min_val), 
+                               xytext=(5, -10), textcoords='offset points',
+                               fontsize=8, fontweight='bold',
+                               bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7))
             
-            # ========== НОВОЕ ОТОБРАЖЕНИЕ ГЕНОВ (под графиком) ==========
-            if genes:
-                # Определяем границы графика
-                x_min, x_max = min(positions), max(positions)
-                y_min, y_max = ax.get_ylim()
-                
-                # Вычисляем положение для полос генов (чуть ниже основного графика)
-                gene_bar_y = y_min - (y_max - y_min) * 0.08
-                
-                # Для каждого гена рисуем полосу и подпись
-                for i, gene in enumerate(genes):
-                    if gene['start'] < len(sequence) and gene['end'] < len(sequence):
-                        start = max(x_min, gene['start'])
-                        end = min(x_max, gene['end'])
-                        
-                        # Чередуем цвета полос для лучшей читаемости
-                        color_gene = '#2ecc71' if i % 2 == 0 else '#27ae60'
-                        
-                        # Рисуем полосу гена
-                        ax.axvspan(start, end, ymin=0.92, ymax=0.98, 
-                                  alpha=0.5, color=color_gene, zorder=0)
-                        
-                        # Подпись гена под полосой (с небольшим смещением)
-                        center = (start + end) / 2
-                        ax.annotate(gene['name'], 
-                                   xy=(center, gene_bar_y), 
-                                   xytext=(0, -5), textcoords='offset points',
-                                   ha='center', va='top', fontsize=7, 
-                                   rotation=45, zorder=4,
-                                   bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7))
-                
-                # Добавляем выноску о генах
-                ax.text(x_max * 0.98, gene_bar_y, 'Гены', ha='right', va='top', 
-                       fontsize=8, style='italic', color='#27ae60')
-            
-            # Оформление
-            ax.set_xlabel('Позиция в геноме (нт)', fontsize=11)
-            ax.set_ylabel(ylabel, fontsize=11)
+            # Оформление основного графика
+            ax_main.set_xlabel('Позиция в геноме (нт)', fontsize=11)
+            ax_main.set_ylabel(ylabel, fontsize=11)
             title_text = f'{method_name}'
             if header:
                 title_text += f' | {header[:80]}...' if len(header) > 80 else f' | {header}'
-            ax.set_title(title_text, fontsize=12)
-            ax.legend(loc='upper right', fontsize=9, framealpha=0.9)
-            ax.grid(True, alpha=0.2, linestyle='--')
+            ax_main.set_title(title_text, fontsize=12)
+            ax_main.legend(loc='upper right', fontsize=9, framealpha=0.9)
+            ax_main.grid(True, alpha=0.2, linestyle='--')
+            ax_main.set_xlim(min(positions), max(positions))
             
             if method != 'gc':
-                ax.set_ylim(bottom=-0.05, top=1.05)
+                ax_main.set_ylim(bottom=-0.05, top=1.05)
             
-            # Устанавливаем границы для отображения генов
+            # ===== ОТДЕЛЬНАЯ ПАНЕЛЬ ДЛЯ ГЕНОВ =====
+            ax_genes.set_xlim(ax_main.get_xlim())
+            ax_genes.set_ylim(0, 1)
+            ax_genes.set_yticks([])  # убираем вертикальные метки
+            ax_genes.set_xlabel('')
+            ax_genes.set_ylabel('Гены', fontsize=9, rotation=0, ha='right', va='center')
+            ax_genes.yaxis.set_label_coords(-0.05, 0.5)
+            
+            # Убираем рамку и лишние элементы
+            for spine in ax_genes.spines.values():
+                spine.set_visible(False)
+            ax_genes.tick_params(axis='x', bottom=False, labelbottom=False)
+            
             if genes:
-                y_min, y_max = ax.get_ylim()
-                ax.set_ylim(bottom=y_min - (y_max - y_min) * 0.12)
+                # Сортируем гены по позиции
+                genes_sorted = sorted(genes, key=lambda x: x['start'])
+                
+                # Вычисляем высоту полосы (фиксированная)
+                bar_height = 0.4
+                y_pos = 0.5
+                
+                for i, gene in enumerate(genes_sorted):
+                    if gene['start'] < len(sequence) and gene['end'] < len(sequence):
+                        start = max(ax_main.get_xlim()[0], gene['start'])
+                        end = min(ax_main.get_xlim()[1], gene['end'])
+                        
+                        # Чередуем цвета
+                        color_gene = '#2ecc71' if i % 2 == 0 else '#27ae60'
+                        
+                        # Рисуем прямоугольник (полосу гена)
+                        rect = plt.Rectangle((start, y_pos - bar_height/2), 
+                                            end - start, bar_height,
+                                            facecolor=color_gene, alpha=0.7, edgecolor='darkgreen', linewidth=0.5)
+                        ax_genes.add_patch(rect)
+                        
+                        # Добавляем подпись гена (только если ширина полосы достаточна)
+                        width = end - start
+                        if width > 100:  # не подписываем слишком короткие гены
+                            center = (start + end) / 2
+                            ax_genes.text(center, y_pos, gene['name'], 
+                                        ha='center', va='center', fontsize=7, 
+                                        rotation=0, fontweight='bold',
+                                        bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8))
+                        else:
+                            # Для коротких генов — подпись под полосой
+                            ax_genes.text(center, y_pos - bar_height/2 - 0.1, gene['name'], 
+                                        ha='center', va='top', fontsize=6, rotation=45)
+                
+                # Добавляем стрелку направления
+                ax_genes.annotate('', xy=(ax_main.get_xlim()[1], y_pos), xytext=(ax_main.get_xlim()[0], y_pos),
+                                arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
+            else:
+                # Если генов нет — просто надпись
+                ax_genes.text(ax_main.get_xlim()[0] + (ax_main.get_xlim()[1] - ax_main.get_xlim()[0])/2, 0.5, 
+                            'BED-файл не загружен — аннотация генов отсутствует',
+                            ha='center', va='center', fontsize=9, style='italic', color='gray')
+            
+            # Добавляем разделительную линию между графиками
+            ax_main.axhline(y=ax_main.get_ylim()[0], color='gray', linewidth=0.5, linestyle='-')
             
             plt.tight_layout()
-            
-            buffer = BytesIO()
-            plt.savefig(buffer, format='png', dpi=100)
-            buffer.seek(0)
-            image_base64 = base64.b64encode(buffer.getvalue()).decode()
-            buffer.close()
-            plt.close()
             
             # Биологическая интерпретация
             biological_interpretation = ""
